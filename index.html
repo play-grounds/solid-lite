@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solid Identity - Secure Login</title>
+    <script type="module" src="https://unpkg.com/@uvdsl/solid-oidc-client-browser@0.1.0/dist/esm/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 3rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: #7c3aed;
+            border: 2px solid #5b21b6;
+            margin: 0 auto 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            font-weight: 600;
+        }
+
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #7c3aed;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            font-weight: 400;
+        }
+
+        #welcome-message {
+            background: #e8e8e8;
+            color: #333;
+            padding: 1rem;
+            border: 1px solid #ccc;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+
+
+        .user-info {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-left: 4px solid #7c3aed;
+        }
+
+        .user-info p {
+            margin: 0;
+            font-weight: 500;
+            color: #555;
+        }
+
+        #webid {
+            font-weight: 600;
+            color: #7c3aed;
+            word-break: break-all;
+        }
+
+        .pod-selector {
+            margin-bottom: 1.5rem;
+        }
+
+        .pod-selector label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+        select {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            font-weight: 500;
+            background: white;
+            color: #333;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #7c3aed;
+        }
+
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-direction: column;
+        }
+
+        button {
+            background: #7c3aed;
+            color: white;
+            border: 1px solid #5b21b6;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+
+
+        #logoutButton {
+            background: #a855f7;
+        }
+
+
+
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .button-group {
+                gap: 0.75rem;
+            }
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <div class="logo">S</div>
+        <h1>Solid Identity</h1>
+        <p class="subtitle">Secure decentralized authentication</p>
+        <section id="welcome-message">Welcome to the application</section>
+        <div id="user-info" class="user-info">
+            <p>WebID: <span id="webid">not logged in.</span></p>
+        </div>
+        <div class="pod-selector">
+            <label for="podProvider">Choose your Solid pod provider:</label>
+            <select id="podProvider">
+                <option value="https://solidweb.me/">solidweb.me</option>
+                <option value="https://teamid.live/">teamid.live</option>
+                <option value="https://trinpod.us/">trinpod.us</option>
+                <option value="https://trinpod.eu/">trinpod.eu</option>
+            </select>
+        </div>
+        <div class="button-group">
+            <button id="loginButton">Login with Solid</button>
+            <button id="logoutButton">Logout</button>
+        </div>
+    </main>
+
+    <script>
+        let session;
+
+        function updateUI(isLoggedIn, webId = null, message = null) {
+            const welcomeMessage = document.getElementById('welcome-message');
+            const webIdElement = document.getElementById('webid');
+            const container = document.querySelector('.container');
+            const loginButton = document.getElementById('loginButton');
+            const logoutButton = document.getElementById('logoutButton');
+            
+            if (isLoggedIn) {
+                webIdElement.textContent = webId;
+                welcomeMessage.textContent = message || '🎉 Welcome! You are securely logged in.';
+                welcomeMessage.className = 'success';
+                loginButton.style.display = 'none';
+                logoutButton.style.display = 'block';
+            } else {
+                webIdElement.textContent = "not logged in.";
+                welcomeMessage.textContent = message || "Ready to connect with your Solid identity?";
+                welcomeMessage.className = '';
+                loginButton.style.display = 'block';
+                logoutButton.style.display = 'none';
+            }
+        }
+
+        function setLoading(isLoading) {
+            const container = document.querySelector('.container');
+            const buttons = document.querySelectorAll('button');
+            
+            if (isLoading) {
+                container.classList.add('loading');
+                buttons.forEach(btn => btn.disabled = true);
+            } else {
+                container.classList.remove('loading');
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const module = await import('https://unpkg.com/@uvdsl/solid-oidc-client-browser@0.1.0/dist/esm/index.min.js');
+                const Session = module.Session;
+                session = new Session();
+
+                document.getElementById('loginButton').addEventListener('click', async () => {
+                    setLoading(true);
+                    try {
+                        const podProvider = document.getElementById('podProvider').value;
+                        const redirect_uri = window.location.href;
+                        await session.login(podProvider, redirect_uri);
+                    } catch (error) {
+                        console.error("Login error:", error);
+                        updateUI(false, null, "Login failed. Please try again.");
+                    } finally {
+                        setLoading(false);
+                    }
+                });
+
+                document.getElementById('logoutButton').addEventListener('click', async () => {
+                    setLoading(true);
+                    try {
+                        await session.logout();
+                        updateUI(false, null, "You have been logged out successfully.");
+                    } catch (error) {
+                        console.error("Logout error:", error);
+                        updateUI(false, null, "Logout completed.");
+                    } finally {
+                        setLoading(false);
+                    }
+                });
+
+                setLoading(true);
+                try {
+                    await session.handleRedirectFromLogin();
+                    await session.restore();
+
+                    if (session.webId) {
+                        updateUI(true, session.webId);
+                    } else {
+                        updateUI(false);
+                    }
+                } catch (error) {
+                    console.error("Session error:", error);
+                    updateUI(false, null, "Unable to restore session. Please log in.");
+                } finally {
+                    setLoading(false);
+                }
+
+            } catch (error) {
+                console.error("Initialization error:", error);
+                updateUI(false, null, "Application initialization failed.");
+            }
+        });
+    </script>
+</body>
+
+</html>
