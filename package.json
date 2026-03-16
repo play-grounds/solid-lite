@@ -1,0 +1,11 @@
+{
+  "name": "solid-lite",
+  "version": "0.0.2",
+  "description": "Solid Identity - Secure decentralized authentication",
+  "license": "AGPL-3.0-or-later",
+  "author": "Melvin Carvalho",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/play-grounds/solid-lite"
+  }
+}
