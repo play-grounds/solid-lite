@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solid Identity - Secure Login</title>
-    <script type="module" src="https://unpkg.com/@uvdsl/solid-oidc-client-browser@0.1.0/dist/esm/index.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -184,6 +183,7 @@
         <div class="pod-selector">
             <label for="podProvider">Choose your Solid pod provider:</label>
             <select id="podProvider">
+                <option value="https://melvin.me/">melvin.me</option>
                 <option value="https://solidweb.me/">solidweb.me</option>
                 <option value="https://teamid.live/">teamid.live</option>
                 <option value="https://trinpod.eu/">trinpod.eu</option>
@@ -197,16 +197,15 @@
         </div>
     </main>
 
-    <script>
-        let session;
+    <script type="module">
+        import { Session } from 'https://unpkg.com/solid-oidc@0.0.8/solid-oidc.js';
 
         function updateUI(isLoggedIn, webId = null, message = null) {
             const welcomeMessage = document.getElementById('welcome-message');
             const webIdElement = document.getElementById('webid');
-            const container = document.querySelector('.container');
             const loginButton = document.getElementById('loginButton');
             const logoutButton = document.getElementById('logoutButton');
-            
+
             if (isLoggedIn) {
                 webIdElement.textContent = webId;
                 welcomeMessage.textContent = message || '🎉 Welcome! You are securely logged in.';
@@ -225,7 +224,7 @@
         function setLoading(isLoading) {
             const container = document.querySelector('.container');
             const buttons = document.querySelectorAll('button');
-            
+
             if (isLoading) {
                 container.classList.add('loading');
                 buttons.forEach(btn => btn.disabled = true);
@@ -235,61 +234,57 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                const module = await import('https://unpkg.com/@uvdsl/solid-oidc-client-browser@0.1.0/dist/esm/index.min.js');
-                const Session = module.Session;
-                session = new Session();
-
-                document.getElementById('loginButton').addEventListener('click', async () => {
-                    setLoading(true);
-                    try {
-                        const podProvider = document.getElementById('podProvider').value;
-                        const redirect_uri = window.location.href;
-                        await session.login(podProvider, redirect_uri);
-                    } catch (error) {
-                        console.error("Login error:", error);
-                        updateUI(false, null, "Login failed. Please try again.");
-                    } finally {
-                        setLoading(false);
-                    }
-                });
-
-                document.getElementById('logoutButton').addEventListener('click', async () => {
-                    setLoading(true);
-                    try {
-                        await session.logout();
-                        updateUI(false, null, "You have been logged out successfully.");
-                    } catch (error) {
-                        console.error("Logout error:", error);
-                        updateUI(false, null, "Logout completed.");
-                    } finally {
-                        setLoading(false);
-                    }
-                });
-
-                setLoading(true);
-                try {
-                    await session.handleRedirectFromLogin();
-                    await session.restore();
-
-                    if (session.webId) {
-                        updateUI(true, session.webId);
-                    } else {
-                        updateUI(false);
-                    }
-                } catch (error) {
-                    console.error("Session error:", error);
-                    updateUI(false, null, "Unable to restore session. Please log in.");
-                } finally {
-                    setLoading(false);
+        const session = new Session({
+            onStateChange: (event) => {
+                if (session.isActive) {
+                    updateUI(true, session.webId);
+                } else {
+                    updateUI(false);
                 }
-
-            } catch (error) {
-                console.error("Initialization error:", error);
-                updateUI(false, null, "Application initialization failed.");
             }
         });
+
+        document.getElementById('loginButton').addEventListener('click', async () => {
+            setLoading(true);
+            try {
+                const podProvider = document.getElementById('podProvider').value;
+                await session.login(podProvider, window.location.href);
+            } catch (error) {
+                console.error("Login error:", error);
+                updateUI(false, null, "Login failed. Please try again.");
+                setLoading(false);
+            }
+        });
+
+        document.getElementById('logoutButton').addEventListener('click', async () => {
+            setLoading(true);
+            try {
+                await session.logout();
+                updateUI(false, null, "You have been logged out successfully.");
+            } catch (error) {
+                console.error("Logout error:", error);
+                updateUI(false, null, "Logout completed.");
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        setLoading(true);
+        try {
+            await session.handleRedirectFromLogin();
+            await session.restore();
+
+            if (session.isActive) {
+                updateUI(true, session.webId);
+            } else {
+                updateUI(false);
+            }
+        } catch (error) {
+            console.error("Session error:", error);
+            updateUI(false, null, "Unable to restore session. Please log in.");
+        } finally {
+            setLoading(false);
+        }
     </script>
 </body>
 
